@@ -1,0 +1,12 @@
+# Secrets (create them from the .example files)
+server/.env
+firmware/include/secrets.h
+
+# Dependencies and build output
+server/node_modules/
+firmware/.pio/
+firmware/.vscode/
+*.log
+
+# OS files
+.DS_Store

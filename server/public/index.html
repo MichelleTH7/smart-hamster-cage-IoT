@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smart Hamster Cage</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="vendor/chart.umd.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Smart Hamster Cage</h1>
+      <p class="sub">Monitoring lingkungan &amp; aktivitas hamster · <span id="deviceId">—</span></p>
+    </div>
+    <div class="controls">
+      <span id="onlineBadge" class="badge badge-off">Offline</span>
+      <span id="lastUpdate" class="muted">—</span>
+      <label>Mode
+        <select id="modeSel">
+          <option value="final">final</option>
+          <option value="test">test</option>
+        </select>
+      </label>
+      <label>Rentang
+        <select id="rangeSel">
+          <option value="0.5">30 menit</option>
+          <option value="1">1 jam</option>
+          <option value="6" selected>6 jam</option>
+          <option value="24">24 jam</option>
+          <option value="72">3 hari</option>
+          <option value="168">7 hari</option>
+          <option value="custom">Pilih tanggal &amp; jam…</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <form id="customRange" class="range-bar hidden">
+    <label>Dari <input type="datetime-local" id="rFrom" required></label>
+    <label>Sampai <input type="datetime-local" id="rTo" required></label>
+    <button type="submit" class="btn">Tampilkan</button>
+    <button type="button" id="rLive" class="btn btn-ghost">Kembali ke live</button>
+    <span id="rInfo" class="muted"></span>
+  </form>
+
+  <main>
+    <div id="alertBar" class="alert hidden"></div>
+
+    <!-- KPI sensor -->
+    <section class="grid kpis">
+      <article class="card kpi">
+        <h3>Suhu</h3>
+        <div class="value"><span id="kTemp">—</span><small>°C</small></div>
+        <p class="hint">Kipas ON &gt; 30 °C · OFF &lt; 28,5 °C</p>
+      </article>
+      <article class="card kpi">
+        <h3>Kelembapan</h3>
+        <div class="value"><span id="kHum">—</span><small>%RH</small></div>
+        <p class="hint">LED merah &amp; kipas ON &gt; 66% · OFF &lt; 64%</p>
+      </article>
+      <article class="card kpi">
+        <h3>Cahaya</h3>
+        <div class="value"><span id="kLight">—</span><small>%</small></div>
+        <p class="hint" id="kLightHint">LDR —</p>
+      </article>
+      <article class="card kpi">
+        <h3>Aktivitas</h3>
+        <div class="value"><span id="kAct">—</span><small id="kActUnit"> / 20 menit aktif</small></div>
+        <p class="hint" id="kActHint">PIR —</p>
+      </article>
+      <article class="card kpi">
+        <h3>Status hamster</h3>
+        <div class="value"><span id="kStatus" class="status">—</span></div>
+        <p class="hint" id="kIdle">Idle —</p>
+      </article>
+      <article class="card kpi">
+        <h3>Prediksi suhu (AOL)</h3>
+        <div class="value"><span id="kPred">—</span><small>°C</small></div>
+        <p class="hint" id="kPredHint">Belum ada model</p>
+      </article>
+    </section>
+
+    <!-- Status aktuator -->
+    <section class="grid actuators">
+      <article class="card act">
+        <div class="act-head"><h3>Kipas exhaust</h3><span id="aFan" class="pill">—</span></div>
+        <p class="hint" id="aFanReason">—</p>
+      </article>
+      <article class="card act">
+        <div class="act-head"><h3>LED merah</h3><span id="aRed" class="pill">—</span></div>
+        <p class="hint">Indikator kelembapan tinggi</p>
+      </article>
+      <article class="card act">
+        <div class="act-head"><h3>LED putih</h3><span id="aWhite" class="pill">—</span></div>
+        <p class="hint" id="aWhiteHint">ON jika ruangan gelap</p>
+      </article>
+      <article class="card act">
+        <div class="act-head"><h3>Feeder (servo)</h3><span id="aFeeds" class="pill">—</span></div>
+        <p class="hint" id="aLastFeed">Feeding terakhir —</p>
+        <button id="feedBtn" class="btn">Beri makan sekarang</button>
+      </article>
+    </section>
+
+    <!-- Grafik historis -->
+    <section class="grid charts">
+      <article class="card chart-card">
+        <h3>Suhu &amp; prediksi</h3>
+        <div class="chart-box"><canvas id="cTemp"></canvas></div>
+      </article>
+      <article class="card chart-card">
+        <h3>Kelembapan</h3>
+        <div class="chart-box"><canvas id="cHum"></canvas></div>
+      </article>
+      <article class="card chart-card">
+        <h3>Cahaya</h3>
+        <div class="chart-box"><canvas id="cLight"></canvas></div>
+      </article>
+      <article class="card chart-card">
+        <h3>Aktivitas hamster &amp; feeding</h3>
+        <div class="chart-box"><canvas id="cAct"></canvas></div>
+      </article>
+      <article class="card chart-card wide">
+        <h3>Riwayat status aktuator</h3>
+        <div class="chart-box short"><canvas id="cActu"></canvas></div>
+      </article>
+    </section>
+
+    <section class="grid bottom">
+      <!-- Log aktuator -->
+      <article class="card">
+        <h3>Log aktivitas aktuator</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Waktu</th><th>Aktuator</th><th>Status</th><th>Alasan</th></tr></thead>
+            <tbody id="eventsBody"><tr><td colspan="4" class="muted">Belum ada data</td></tr></tbody>
+          </table>
+        </div>
+      </article>
+
+      <!-- Dataset -->
+      <article class="card">
+        <h3>Dataset &amp; export</h3>
+        <div class="dataset-stats">
+          <div><span class="muted">Record final</span><strong id="dFinal">0</strong></div>
+          <div><span class="muted">Record test</span><strong id="dTest">0</strong></div>
+          <div><span class="muted">DHT gagal (final)</span><strong id="dMissing">0</strong></div>
+        </div>
+        <div class="progress"><div id="dProgress" class="progress-fill"></div></div>
+        <p class="hint" id="dProgressText">Target minimal 1.000 record</p>
+        <p class="hint" id="dRange">—</p>
+
+        <form id="exportForm" class="export">
+          <label>Dari <input type="date" id="eFrom"></label>
+          <label>Sampai <input type="date" id="eTo"></label>
+          <label>Mode
+            <select id="eMode"><option value="final">final</option><option value="test">test</option></select>
+          </label>
+          <label>Target ML
+            <select id="eHorizon">
+              <option value="300" selected>suhu t+5 menit</option>
+              <option value="600">suhu t+10 menit</option>
+              <option value="60">suhu t+1 menit</option>
+              <option value="25">suhu t+25 detik (test)</option>
+            </select>
+          </label>
+          <div class="export-btns">
+            <button type="button" class="btn" data-format="xlsx">Export Excel</button>
+            <button type="button" class="btn btn-ghost" data-format="csv">Export CSV</button>
+          </div>
+        </form>
+      </article>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+</body>
+</html>
